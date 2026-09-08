@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>简单传 · iPhone 照片速览</title>
+<meta name="theme-color" content="#f2f2f7">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<script>try{if(localStorage.getItem('autopp-theme')==='dark')document.body.classList.add('dark')}catch(e){}</script>
+
+<header id="topbar">
+  <div class="brand">📷 简单传</div>
+  <div id="deviceChip" class="chip hidden"></div>
+  <div class="spacer"></div>
+  <div class="seg" id="kindSeg">
+    <button data-kind="all" class="active">全部</button>
+    <button data-kind="photo">仅图片</button>
+    <button data-kind="video">仅视频</button>
+  </div>
+  <div class="seg" id="modeSeg">
+    <button data-days="14" data-mode="recent" class="active">近两周</button>
+    <button data-days="30" data-mode="recent">近30天</button>
+    <button data-days="0" data-mode="all">全部</button>
+  </div>
+  <button id="btnTheme" class="icon-btn" title="深色 / 浅色模式">🌙</button>
+  <button id="btnSettings" class="icon-btn" title="设置">⚙️</button>
+</header>
+
+<section id="banner" class="hidden">
+  <div id="bannerIcon" class="banner-icon">🔌</div>
+  <div class="banner-body">
+    <div id="bannerTitle"></div>
+    <div id="bannerText"></div>
+  </div>
+  <button id="btnRetry" class="btn">重试</button>
+</section>
+
+<nav id="dayStrip" class="hidden"></nav>
+
+<div id="loading" class="loading hidden"><div class="spinner"></div><div id="loadingText">正在连接 iPhone…</div></div>
+
+<main id="grid"></main>
+
+<div id="empty" class="empty hidden">这个时间段没有照片或视频</div>
+
+<footer id="bottomBar" class="hidden">
+  <button id="btnClear" class="btn ghost">清空</button>
+  <div id="selInfo" title="Shift+点击 连选一段；Ctrl+点击 单个切换">已选 0 项 · 0 MB</div>
+  <button id="btnExport" class="btn primary">导出到资源管理器</button>
+</footer>
+
+<dialog id="previewDlg">
+  <div class="preview-wrap">
+    <div id="previewMedia"></div>
+    <div class="preview-meta">
+      <div id="previewTitle"></div>
+      <div id="previewSub"></div>
+    </div>
+    <div class="preview-actions">
+      <button id="btnPreviewExport" class="btn primary">导出此项目</button>
+      <button id="btnPreviewClose" class="btn ghost">关闭</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="settingsDlg">
+  <div class="dlg">
+    <h3>设置</h3>
+    <label>默认时间范围（天）
+      <input id="inpDays" type="number" min="1" max="3650" step="1">
+    </label>
+    <label>导出目录
+      <span class="dir-row">
+        <input id="inpExportDir" type="text" spellcheck="false">
+        <button id="btnBrowse" class="btn" type="button">浏览…</button>
+      </span>
+    </label>
+    <div id="browseHint" class="hint"></div>
+    <p class="hint">导出时会在导出目录里按日期建立子文件夹，完成后自动在资源管理器中定位。</p>
+    <label class="check-row" for="inpAutoExit">
+      <input id="inpAutoExit" type="checkbox">
+      <span>关闭应用窗口后自动退出服务</span>
+    </label>
+    <div class="shutdown-row">
+      <button id="btnShutdown" class="btn danger">退出服务</button>
+      <span id="shutdownHint" class="hint"></span>
+    </div>
+    <div class="dlg-actions">
+      <button id="btnSettingsSave" class="btn primary">保存</button>
+      <button id="btnSettingsClose" class="btn ghost">取消</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="exportDlg">
+  <div class="dlg">
+    <h3 id="exportTitle">正在导出…</h3>
+    <div class="bar"><div id="exportBar" class="bar-fill"></div></div>
+    <div id="exportLine" class="mono"></div>
+    <div id="exportLog" class="log mono"></div>
+    <div class="dlg-actions">
+      <button id="btnExportClose" class="btn primary hidden">完成</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="/app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>

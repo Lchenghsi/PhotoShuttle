@@ -1,0 +1,23 @@
+{
+  "name": "jiandanchuan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "简单传 —— 用数据线连接 iPhone，秒开近两周照片/视频缩略图，按日期一键导出到资源管理器（本地 H5，零 npm 依赖）",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "mock": "node server/index.js --mock",
+    "build:exe": "node scripts/build-sea.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "heic2any": "^0.0.4",
+    "postject": "^1.0.0-alpha.6",
+    "resedit": "^3.1.0"
+  }
+}

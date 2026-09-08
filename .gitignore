@@ -1,0 +1,14 @@
+.cache/
+.testdata*/
+tmp-*
+*.log
+idx2.json
+idx3.json
+node_modules/
+dist/
+release/
+server/embedded.gen.js
+public/vendor/
+assets/
+.zcode/
+简单传界面截图.png
