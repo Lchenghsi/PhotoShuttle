@@ -56,6 +56,7 @@ export class MockLibrary {
           kind,
           live,
           motionPart: false,
+          favorite: kind !== 'video' && rand() < 0.08,
           size,
           mtime,
           day: dayString(mtime),

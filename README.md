@@ -4,6 +4,8 @@
 
 **用一根数据线，秒看 iPhone 近两周的照片和视频，按日期一键导出，免去臃肿的XX助手&Itunes，支持AI agent接管**
 
+> 关键词：iPhone 照片导出 · photo export CLI · USB 直连 · AFC / usbmuxd / lockdown · Windows · 命令行自动化 · AI Agent 可调用 · HEIC · 无云端 · 零依赖
+
 Windows 本地运行 · 照片不经过任何云端 · 免安装 Node
 
 <img src="docs/screenshot.png" alt="简单传界面截图" width="860">
@@ -11,6 +13,7 @@ Windows 本地运行 · 照片不经过任何云端 · 免安装 Node
 [![平台](https://img.shields.io/badge/平台-Windows%2010%20%2F%2011-0078d4)](#-下载使用免装-node)
 [![运行时](https://img.shields.io/badge/运行时-零%20npm%20依赖-3fb950)](#-源码运行与打包)
 [![分发](https://img.shields.io/badge/分发-单文件%20exe-8957e5)](../../releases)
+[![CLI](https://img.shields.io/badge/CLI-Agent%20友好-ff9f43)](#-cli-自动化接口给-agent--脚本)
 [![许可证](https://img.shields.io/badge/许可证-MIT-c9d1d9)](LICENSE)
 
 </div>
@@ -32,6 +35,7 @@ iPhone 连上 Windows 后，自带「照片」应用要把整张 HEIC 原片下�
 
 ## ✨ 功能特性
 
+- **收藏 ❤ 标志** —— iPhone 上点过"收藏"的照片，网格里直接显示红心角标（读取 iOS 相册库的收藏标记，读不到时自动降级、不影响其他功能）
 - **近两周秒开** —— 默认只显示近两周（可切 30 天/全部），索引按"从新到旧"扫描、扫够即停，1.5 万项相册的全流程实测 **0.2~0.3 秒**
 - **真·缩略图** —— 直接读 iOS 自带的缩略图库（`/PhotoData/Thumbnails/V2/`），不解码 HEIC、不下载原片，滚动无压力；内存 LRU + 磁盘双层缓存，第二次看更快
 - **按日期一键操作** —— 每个日期分组有「选当天」「导出该日」；日期条快速跳转/聚焦某一天
@@ -48,7 +52,7 @@ iPhone 连上 Windows 后，自带「照片」应用要把整张 HEIC 原片下�
 
 ## 📥 下载使用（免装 Node）
 
-1. 到 [**Releases**](../../releases) 下载 `PhotoShuttle-win64.zip`，解压后双击 **简单传.exe**——会自动弹出一个**独立应用窗口**（无地址栏无标签页，带独立任务栏图标），并自动在桌面创建「简单传」快捷方式（服务在一个最小化的控制台窗口里运行），以后从桌面图标启动即可
+1. 到 [**Releases**](../../releases) 下载 `PhotoShuttle-win64.zip`，解压后双击 **简单传.exe**——会自动弹出一个**独立应用窗口**（无地址栏无标签页，带独立任务栏图标），服务在同一个控制台窗口里运行（可最小化，**请勿关闭它**，关闭等于停止服务）；需要桌面快捷方式时，右键 exe →「发送到 → 桌面快捷方式」手动创建即可
 2. 准备工作（一次性）：
    - 在微软商店安装 [**Apple Devices**](https://apps.microsoft.com/detail/9np83lwlpz9k) 应用（或 iTunes），保持后台运行
    - 数据线连接 iPhone，解锁手机，弹窗点「**信任此电脑**」并输入锁屏密码
@@ -62,6 +66,8 @@ iPhone 连上 Windows 后，自带「照片」应用要把整张 HEIC 原片下�
 
 ## 🤖 CLI 自动化接口（给 agent / 脚本）
 
+简单传是一个**可直接被 AI Agent / 自动化脚本调用的命令行工具**：单文件 exe 双击即用，同时提供稳定的子命令式 CLI，适合"每天定时把 iPhone 新照片导到指定目录"这类任务。
+
 ```bash
 简单传.exe export --today                    # 导出今天拍的照片+视频
 简单传.exe export --date 2026-09-01          # 指定日期
@@ -70,9 +76,43 @@ iPhone 连上 Windows 后，自带「照片」应用要把整张 HEIC 原片下�
 简单传.exe export --today --json             # JSON 输出（便于程序解析）
 ```
 
-- 不启动界面、不占固定端口，可与正在运行的窗口实例并存
-- 退出码：0 成功（含 0 个可导出项），1 有失败
-- `--json` 返回 `{ok, count, bytes, target, failed[], suspicious[]}`
+### export 子命令参数
+
+| 参数 | 说明 |
+| --- | --- |
+| `--today` | 导出今天（本地时区）拍摄的内容；**不传任何日期参数时即为默认行为** |
+| `--days N` | 最近 N 天（1~3650），含今天 |
+| `--date YYYY-MM-DD` | 精确匹配某一天 |
+| `--kind all\|photo\|video` | 类型过滤，默认 `all`（photo 含 RAW） |
+| `--dest DIR` | 导出目标目录；缺省用 GUI 里设置过的目录，再缺省 `~/Pictures/iPhone照片导出` |
+| `--json` | 输出 JSON 摘要（机器可解析），否则为人读文本 |
+
+### 其他启动参数与环境变量
+
+| 项 | 说明 |
+| --- | --- |
+| `--no-open` | 启动服务但不自动弹应用窗口（源码运行 / 配合 Agent 场景） |
+| `--mock` | 模拟设备模式，无 iPhone 也能演示与测试 |
+| `AUTO_PP_PORT` | 服务端口，默认 5178（被占自动顺延） |
+| `AUTO_PP_DATA` | 数据/缓存目录，默认 `~/.jiandanchuan` |
+
+### 机器可读约定
+
+- **不启动界面、不占固定端口**，可与正在运行的窗口实例并存
+- **退出码**：`0` 成功（含 0 个可导出项）；`1` 有失败项
+- **`--json` 输出结构**：`{ok, count, bytes, target, failed[], suspicious[]}`（`suspicious` = 疑似 iCloud 未下载原片的文件列表）
+
+### HTTP 接口（服务运行于 127.0.0.1:5178 时）
+
+| 端点 | 说明 |
+| --- | --- |
+| `GET /api/index?mode=recent\|all&days=N` | 照片索引 JSON（含收藏 `favorite`、Live、视频时长等元数据） |
+| `GET /api/thumb?id=` | 设备缩略图（JPEG） |
+| `GET /api/file?id=` | 原片流 |
+| `GET /api/status` | 服务/设备状态 |
+| `GET /api/events` | SSE 事件流（导出进度、索引更新） |
+
+> **给 AI Agent 的提示**：本工具无需安装、无注册表写入、无自启动，删除 exe 与 `~/.jiandanchuan/` 即完成卸载；所有命令幂等可重复执行，适合 cron/计划任务编排。
 
 ## 🚀 它是怎么工作的
 
@@ -85,7 +125,8 @@ usbmuxd (127.0.0.1:27015，Apple 移动设备服务)
    └─ lockdown (设备 62078, TLS) ── StartService ── AFC 连接池 ×16
         ├── /DCIM/…                                   原片（仅导出/预览时读取）
         ├── /PhotoData/Thumbnails/V2/DCIM/…/5005.JPG  照片缩略图（设备现成）
-        └── /PhotoData/Thumbnails/VideoKeyFrames/…    视频关键帧
+        ├── /PhotoData/Thumbnails/VideoKeyFrames/…    视频关键帧
+        └── /PhotoData/Photos.sqlite                  相册库（仅取收藏 ZFAVORITE，失败自动降级）
 ```
 
 三个关键设计：
@@ -123,7 +164,9 @@ usbmuxd (127.0.0.1:27015，Apple 移动设备服务)
 <details>
 <summary><b>SmartScreen / 杀毒软件提示</b></summary>
 
-程序未做付费代码签名（免费分发的独立工具普遍如此），点「仍要运行」；不放心可只在内网/本地环境使用——程序不会访问任何外部服务器。
+程序未做付费代码签名（免费分发的独立工具普遍如此），点「仍要运行」；不放心可只在内网/本地环境使用——程序不会访问任何外部服务器。简单传**不做任何自安装**：不复制自身、不写注册表、不创建自启动项、首启不再自动建快捷方式，这些都是历史版本为方便而做、又因易触发杀软启发式误报而移除的行为。
+
+> 从旧版升级：旧版曾在 `%LOCALAPPDATA%\简单传\` 留有 exe 副本和指向它的桌面快捷方式，请手动删除这两样（避免启动到旧版本）。
 </details>
 
 ## 🔒 隐私
@@ -150,7 +193,7 @@ npm run build:exe  # → dist/简单传.exe + release/简单传-win64.zip
 ```
 server/
   device/    plist(二进制+XML)、usbmux、lockdown、afc、session(连接池)
-  library/   scanner(DCIM 扫描/近期过滤)、thumbs(缩略图三层缓存)
+  library/   scanner(DCIM 扫描/近期过滤)、thumbs(缩略图三层缓存)、favorites(收藏标志)、duration(视频时长)
   library.js 真实设备门面   mock.js 模拟设备   exporter.js 导出器
   index.js   HTTP 服务与 REST/SSE 接口（含原生文件夹选择桥）
 public/      纯 H5 前端（无框架、无构建）

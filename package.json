@@ -1,6 +1,6 @@
 {
   "name": "jiandanchuan",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "简单传 —— 用数据线连接 iPhone，秒开近两周照片/视频缩略图，按日期一键导出到资源管理器（本地 H5，零 npm 依赖）",
   "type": "module",

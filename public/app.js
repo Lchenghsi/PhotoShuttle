@@ -494,6 +494,7 @@ function makeTile(it) {
   tile.append(img);
 
   const badges = el('div', 'badges');
+  if (it.favorite) badges.append(el('span', 'badge fav', '❤'));
   if (it.kind === 'video') badges.append(el('span', 'badge', it.durationSec ? '▶ ' + fmtDur(it.durationSec) : '▶ 视频'));
   if (it.live) badges.append(el('span', 'badge live', 'LIVE'));
   if (it.kind === 'raw') badges.append(el('span', 'badge', 'RAW'));
@@ -642,6 +643,7 @@ function openPreview(id) {
   }
   $('#previewTitle').textContent = it.name;
   $('#previewSub').textContent = `${it.day} · ${fmtSize(it.size)} · ${kindLabel(it)}` +
+    (it.favorite ? ' · ❤ 收藏' : '') +
     (/^(HEIC|HEIF)$/i.test(it.ext) ? ' · 正在解码原片…' : /\.DNG$/i.test(it.ext) ? ' · 导出后可查看原片' : '');
   $('#previewDlg').showModal();
 }
@@ -748,5 +750,10 @@ function openSse() {
   es.addEventListener('export-done', (e) => {
     const d = JSON.parse(e.data);
     if (d.failed?.length) appendExportLine(`⚠ ${d.failed.length} 个文件失败`);
+  });
+  // 收藏等后台数据就绪：防抖后重拉索引，补上 ❤ 角标。
+  es.addEventListener('index-updated', () => {
+    clearTimeout(openSse.t);
+    openSse.t = setTimeout(() => { loadIndex().catch(() => {}); }, 800);
   });
 }

@@ -30,7 +30,8 @@ export async function runExportCli(argv) {
   } catch { /* 没有设置文件就用默认值 */ }
   const exportDir = dest || settings.exportDir;
 
-  const library = new RealLibrary(dataDir);
+  // CLI 只要日期/类型导出，不需要收藏标志（避免首次连接白下载几百 MB 相册库）。
+  const library = new RealLibrary(dataDir, { collectFavorites: false });
   const exporter = new Exporter(library);
   try {
     await library.ensureConnected();

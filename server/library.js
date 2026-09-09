@@ -3,7 +3,8 @@ import path from 'node:path';
 import { DeviceSession } from './device/session.js';
 import { ThumbnailService } from './library/thumbs.js';
 import { probeDuration } from './library/duration.js';
-import { dcimPath, listAssets, sweepMetadata, cutoffFor, decorate } from './library/scanner.js';
+import { dcimPath, listAssets, sweepMetadata, cutoffFor, decorate, baseName } from './library/scanner.js';
+import { loadFavorites } from './library/favorites.js';
 
 /**
  * 真实设备侧的统一门面：连接管理 + 索引缓存 + 缩略图 + 文件流。
@@ -11,7 +12,7 @@ import { dcimPath, listAssets, sweepMetadata, cutoffFor, decorate } from './libr
  */
 
 export class RealLibrary {
-  constructor(dataDir) {
+  constructor(dataDir, options = {}) {
     this.dataDir = dataDir;
     this.session = null;
     this.thumbs = null;
@@ -20,14 +21,20 @@ export class RealLibrary {
     this.scanned = false;
     this.preferredUdid = null;   // 多设备时用户选择的设备
     this.durationFailed = new Set(); // 时长解析失败的素材，本次会话不再重试
+    this.favorites = new Set();  // 收藏资产键（「文件夹/基名」大写），由后台任务填充
+    this.favoritesJob = null;    // 收藏提取只跑一次；断线换设备后重置
+    this.collectFavorites = options.collectFavorites !== false; // CLI 导出等场景可关
+    this.onUpdate = null;        // 收藏等后台数据就绪时回调（server 接到 SSE 广播）
     this.status = { state: 'disconnected', device: null, mock: false, error: null };
   }
 
   async ensureConnected(udid) {
     if (this.session) {
       if (!udid || this.session.info.udid === udid) return;
-      // 用户切换了目标设备：关掉旧会话重开。
+      // 用户切换了目标设备：关掉旧会话重开，收藏归属随设备作废。
       this.close();
+      this.favorites = new Set();
+      this.favoritesJob = null;
     }
     if (udid) this.preferredUdid = udid;
     this.status = { state: 'connecting', device: null, mock: false, error: null };
@@ -57,6 +64,8 @@ export class RealLibrary {
     this.session = null;
     this.thumbs = null;
     this.scanned = false;
+    this.favorites = new Set();
+    this.favoritesJob = null;
     this.status = {
       state: 'disconnected',
       device: null,
@@ -114,6 +123,27 @@ export class RealLibrary {
     this.assets = assets;
     this.assetsById = new Map(assets.map((a) => [a.id, a]));
     this.scanned = true;
+    // 收藏提取可能要下载数十 MB 的相册库，放后台跑，不拖慢首屏；
+    // 完成后经 onUpdate 通知前端刷新一次即可补上 ❤。
+    if (this.collectFavorites && !this.favoritesJob) {
+      this.favoritesJob = this.refreshFavorites();
+    }
+  }
+
+  /** 后台提取收藏集合（Photos.sqlite），失败只留日志，不影响主流程。 */
+  async refreshFavorites() {
+    try {
+      const udid = this.session?.info?.udid;
+      if (!udid) return;
+      const favs = await loadFavorites(this.session, this.dataDir, udid, (msg) =>
+        console.log('[收藏] ' + msg),
+      );
+      this.favorites = favs;
+      console.log(`[收藏] 设备收藏资产 ${favs.size} 项`);
+      this.onUpdate?.({ reason: 'favorites', count: favs.size });
+    } catch (err) {
+      console.log('[收藏] 读取失败（不影响其他功能）: ' + err.message);
+    }
   }
 
   /** 给视频补时长（moov 解析），结果随快照持久化，只算一次。 */
@@ -154,6 +184,10 @@ export class RealLibrary {
       });
       await this.collectDurations();
       decorate(this.assets);
+      // 收藏键与素材对上号（静图/视频/RAW 同基名同标）；集合未就绪时全 false。
+      for (const a of this.assets) {
+        a.favorite = this.favorites.has((a.folder + '/' + baseName(a.name)).toUpperCase());
+      }
       if (this.session?.info?.udid) this.saveSnapshot(this.session.info.udid);
       const items =
         mode === 'recent'
@@ -220,5 +254,6 @@ export function publicItem(a) {
     mtime: a.mtime,
     day: a.day,
     durationSec: a.durationSec ?? null,
+    favorite: !!a.favorite,
   };
 }

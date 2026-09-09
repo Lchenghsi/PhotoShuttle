@@ -23,7 +23,7 @@ export function classify(ext) {
   return 'other';
 }
 
-function baseName(name) {
+export function baseName(name) {
   const dot = name.lastIndexOf('.');
   return dot === -1 ? name : name.slice(0, dot);
 }

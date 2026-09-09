@@ -515,50 +515,6 @@ function openAppWindow(url) {
   }
 }
 
-/** 首次运行：把 exe 安装到 %LOCALAPPDATA%\简单传\，创建桌面快捷方式（仅 SEA 发行版）。
- *  注意：刻意不用 VBS 做隐藏窗口启动器——「VBS + 隐藏窗口拉起 exe」会被
- *  Windows Defender 启发式报毒（Trojan:VBS/Obfuse.A!MTB），所以快捷方式
- *  直接指向 exe（控制台最小化运行）。 */
-function ensureLauncher() {
-  if (process.platform !== 'win32' || !globalThis.EMBEDDED_PUBLIC) return;
-  try {
-    // 安装到稳定位置：之后即使删除/移动项目目录，桌面图标也照常可用。
-    const installDir = path.join(process.env.LOCALAPPDATA || settings.dataDir, '简单传');
-    const installedExe = path.join(installDir, '简单传.exe');
-    fs.mkdirSync(installDir, { recursive: true });
-    if (path.resolve(process.execPath) !== path.resolve(installedExe)) {
-      fs.copyFileSync(process.execPath, installedExe);
-    }
-
-    // 清理旧方案遗留的 vbs 启动器（会触发 Defender 报毒）。
-    for (const legacy of [
-      path.join(installDir, '启动简单传.vbs'),
-      path.join(settings.dataDir, '启动简单传.vbs'),
-    ]) {
-      try { fs.rmSync(legacy, { force: true }); } catch { /* 忽略 */ }
-    }
-
-    const flag = path.join(installDir, '.launcher-created');
-    if (fs.existsSync(flag)) return;
-    const ps1 = path.join(installDir, 'create-shortcut.ps1');
-    const esc = (s) => s.replace(/'/g, "''");
-    const content = [
-      "\ufeff$ws = New-Object -ComObject WScript.Shell",
-      "$desktop = [Environment]::GetFolderPath('Desktop')",
-      "$lnk = $ws.CreateShortcut((Join-Path $desktop '简单传.lnk'))",
-      "$lnk.TargetPath = '" + esc(installedExe) + "'",
-      '$lnk.WindowStyle = 7', // 最小化：控制台缩进任务栏，不弹黑窗
-      "$lnk.WorkingDirectory = '" + esc(installDir) + "'",
-      "$lnk.IconLocation = '" + esc(installedExe) + ",0'",
-      '$lnk.Save()',
-    ].join('\r\n');
-    fs.writeFileSync(ps1, content, 'utf8');
-    spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1], { windowsHide: true, stdio: 'ignore' })
-      .on('close', () => { try { fs.writeFileSync(flag, '1'); fs.rmSync(ps1, { force: true }); } catch { /* 忽略 */ } })
-      .on('error', () => {});
-  } catch { /* 安装/快捷方式创建失败不影响主功能 */ }
-}
-
 /**
  * 启动本地服务。
  * @param {object} [options]
@@ -704,7 +660,10 @@ export async function start(options = {}) {
     // 用 Edge/Chrome 的 --app 模式打开独立应用窗口（无地址栏、有独立任务栏图标）。
     openAppWindow(url);
   }
-  ensureLauncher();
+  // 刻意不做首启自安装/自建快捷方式：「exe 自复制 + PowerShell 改系统位置」
+  // 是杀软启发式弹窗的典型特征；需要快捷方式时用户右键 exe 手动创建即可。
+  // RealLibrary 在收藏数据后台就绪时回调 onUpdate（Mock 无此机制，赋值无副作用）。
+  library.onUpdate = (d) => broadcast('index-updated', d);
   armIdleExit();
 
   return { server, port, exporter, settings, library };
